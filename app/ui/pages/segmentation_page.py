@@ -544,19 +544,18 @@ class SegmentationPage(QWidget):
             self._large_file_box.setVisible(False)
             if self._status.text().startswith("❌  Segmentation unavailable"):
                 self._status.setText("")
-            return
+        else:
+            total = AppState.get_row_count()
+            max_sample = max(1_000, min(total, MAX_SAMPLE_SIZE))
+            self._sample_spin.setMaximum(max_sample)
+            self._sample_spin.setValue(min(DEFAULT_SAMPLE_SIZE, max_sample))
 
-        total = AppState.get_row_count()
-        max_sample = max(1_000, min(total, MAX_SAMPLE_SIZE))
-        self._sample_spin.setMaximum(max_sample)
-        self._sample_spin.setValue(min(DEFAULT_SAMPLE_SIZE, max_sample))
+            is_rfm = self._method_combo.currentIndex() == 3
+            self._large_file_box.setVisible(not is_rfm)
+            self._on_method_changed(self._method_combo.currentIndex())
 
-        is_rfm = self._method_combo.currentIndex() == 3
-        self._large_file_box.setVisible(not is_rfm)
-        self._on_method_changed(self._method_combo.currentIndex())
-        self._run_btn.setEnabled(True)
-        if not self._status.text().startswith("✅"):
-            self._status.setText("")
+        running = self._worker is not None and self._worker.isRunning()
+        self._run_btn.setEnabled(not running)
 
     # ------------------------------------------------------------------ #
     #  Run                                                                 #
@@ -699,6 +698,7 @@ class SegmentationPage(QWidget):
         self._placeholder.setVisible(False)
         self._results_widget.setVisible(True)
         self._export_frame.setVisible(True)
+        self._worker = None
 
     def _populate_profile(self, profile: pd.DataFrame, label_col: str):
         tbl  = self._profile_table
@@ -728,6 +728,7 @@ class SegmentationPage(QWidget):
 
     def _on_error(self, msg: str):
         self._progress.setVisible(False)
+        self._worker = None
         self._update_large_file_state()
         self._status.setText(f"❌  {msg}")
         QMessageBox.critical(self, "Segmentation Error", msg)
