@@ -12,6 +12,7 @@ from PyQt6.QtGui import QIcon, QFont
 from app.ui.pages.import_page import ImportPage
 from app.ui.pages.explore_page import ExplorePage
 from app.ui.pages.segmentation_page import SegmentationPage
+from app.ui.pages.churn_page import ChurnPredictionPage
 from app.ui.pages.nba_page import NextBestActionPage
 
 
@@ -19,6 +20,7 @@ NAV_ITEMS = [
     ("📂", "Import Data",       ImportPage),
     ("🔍", "Explore",           ExplorePage),
     ("🎯", "Segmentation",      SegmentationPage),
+    ("📉", "Churn Prediction",  ChurnPredictionPage),
     ("⚡", "Next Best Action",  NextBestActionPage),
 ]
 

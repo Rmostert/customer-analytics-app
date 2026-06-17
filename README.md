@@ -20,6 +20,7 @@ customer-analytics/
 │   │       ├── import_page.py     # File import & preview
 │   │       ├── explore_page.py    # Column profiling
 │   │       ├── segmentation_page.py  # Clustering & RFM segmentation
+│   │       ├── churn_page.py      # Churn modelling
 │   │       └── nba_page.py           # Next best action (stub)
 │   ├── core/
 │   │   ├── data_loader.py         # CSV / Excel / JSON / Parquet loading
@@ -55,6 +56,11 @@ customer-analytics/
 - Export segment assignments (`.xlsx`) and fitted model (`.pkl`)
 
 > **Large CSV / Parquet (> 500 MB):** Explore runs via DuckDB SQL. **Clustering** fits on a configurable random sample (default 50k rows), then optionally assigns labels to the **full file** in batches. **RFM** uses full-dataset quartiles and streams tier assignment — no sampling.
+
+### Churn modelling
+- **Catboost classification model** 
+- Fit statistics and feature importance
+- Feature explainability on churn using beeswarm plot
 
 ### Next Best Action
 - Placeholder page — planned for a future sprint
@@ -113,6 +119,7 @@ pyinstaller --onefile --windowed --name "CustomerAnalytics" main.py
 | 1 | Data Exploration & Profiling | ✅ Done |
 | 2 | Customer Segmentation (K-Means, GMM, K-Prototypes, RFM) | ✅ Done |
 | 2 | Export segment assignments & model | ✅ Done |
-| 3 | Next Best Action Engine | 🔜 Planned |
-| 4 | Export results to PDF | 🔜 Planned |
-| 5 | Packaging & installer | 🔜 Planned |
+| 3 | Churn model | ✅ Done |
+| 4 | Next Best Action Engine | 🔜 Planned |
+| 5 | Export results to PDF | 🔜 Planned |
+| 6 | Packaging & installer | 🔜 Planned |
