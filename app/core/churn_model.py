@@ -8,10 +8,11 @@ dataset that the UI can preview/export.
 
 from __future__ import annotations
 
+import json
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
@@ -21,6 +22,8 @@ from app.core.duckdb_sample import fetch_sample
 
 CHURN_SAMPLE_ROWS = 500_000
 SHAP_SAMPLE_ROWS = 2_000
+MODEL_ARTIFACT_VERSION = 1
+DEFAULT_SCORE_THRESHOLD = 0.5
 
 
 @dataclass
@@ -34,9 +37,15 @@ class ChurnModelResult:
     positive_class: str
     auc: float | None
     accuracy: float | None
+    precision: float | None
+    recall: float | None
+    f1: float | None
+    confusion_matrix: pd.DataFrame
     feature_importance: pd.DataFrame
     scored_data: pd.DataFrame
     shap_plot_path: str
+    model: Any
+    cat_features: list[int]
 
 
 class ChurnModelEngine:
@@ -117,9 +126,18 @@ class ChurnModelEngine:
         test_proba = model.predict_proba(X_test)[:, 1]
         test_pred = (test_proba >= 0.5).astype(int)
         auc = None
+        precision = None
+        recall = None
+        f1 = None
         if y_test.nunique() == 2:
             auc = float(metrics.roc_auc_score(y_test, test_proba))
+            precision = float(metrics.precision_score(y_test, test_pred, zero_division=0))
+            recall = float(metrics.recall_score(y_test, test_pred, zero_division=0))
+            f1 = float(metrics.f1_score(y_test, test_pred, zero_division=0))
         accuracy = float(metrics.accuracy_score(y_test, test_pred))
+        confusion_matrix = ChurnModelEngine._confusion_matrix_frame(
+            y_test, test_pred, positive_class,
+        )
 
         full_pool = Pool(X, y, cat_features=cat_features)
         importances = model.get_feature_importance(full_pool)
@@ -157,10 +175,66 @@ class ChurnModelEngine:
             positive_class=positive_class,
             auc=auc,
             accuracy=accuracy,
+            precision=precision,
+            recall=recall,
+            f1=f1,
+            confusion_matrix=confusion_matrix,
             feature_importance=feature_importance,
             scored_data=scored,
             shap_plot_path=shap_plot_path,
+            model=model,
+            cat_features=cat_features,
         )
+
+    @staticmethod
+    def save_model(result: ChurnModelResult, model_path: str) -> tuple[str, str]:
+        """Save CatBoost model (.cbm) and sidecar metadata for future scoring."""
+        path = Path(model_path)
+        if path.suffix.lower() != ".cbm":
+            path = path.with_suffix(".cbm")
+
+        result.model.save_model(str(path))
+        meta_path = ChurnModelEngine._metadata_path(path)
+        meta_path.write_text(
+            json.dumps(ChurnModelEngine._model_metadata(result), indent=2),
+            encoding="utf-8",
+        )
+        return str(path), str(meta_path)
+
+    @staticmethod
+    def load_model(model_path: str) -> tuple[Any, dict]:
+        """Load a saved CatBoost model and its metadata (for future scoring)."""
+        CatBoostClassifier, *_ = ChurnModelEngine._import_model_dependencies()
+        path = Path(model_path)
+        if path.suffix.lower() != ".cbm":
+            path = path.with_suffix(".cbm")
+
+        meta_path = ChurnModelEngine._metadata_path(path)
+        if not meta_path.exists():
+            raise FileNotFoundError(
+                f"Model metadata not found: {meta_path}. "
+                "Re-save the model from the Churn page to generate it."
+            )
+
+        metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+        model = CatBoostClassifier()
+        model.load_model(str(path))
+        return model, metadata
+
+    @staticmethod
+    def _metadata_path(model_path: Path) -> Path:
+        return model_path.with_name(f"{model_path.stem}.meta.json")
+
+    @staticmethod
+    def _model_metadata(result: ChurnModelResult) -> dict:
+        return {
+            "artifact_version": MODEL_ARTIFACT_VERSION,
+            "target_col": result.target_col,
+            "predictor_cols": result.predictor_cols,
+            "cat_features": result.cat_features,
+            "positive_class": result.positive_class,
+            "score_threshold": DEFAULT_SCORE_THRESHOLD,
+        }
 
     @staticmethod
     def _training_frame(
@@ -217,6 +291,23 @@ class ChurnModelEngine:
             else:
                 X[col] = X[col].astype("string").fillna("__missing__").astype(str)
         return X
+
+    @staticmethod
+    def _confusion_matrix_frame(
+        y_true: pd.Series,
+        y_pred: pd.Series,
+        positive_class: str,
+    ) -> pd.DataFrame:
+        from sklearn import metrics
+
+        matrix = metrics.confusion_matrix(y_true, y_pred, labels=[0, 1])
+        negative_label = "Not churn"
+        positive_label = "Churn"
+        return pd.DataFrame(
+            matrix,
+            index=[f"Actual {negative_label}", f"Actual {positive_label}"],
+            columns=[f"Predicted {negative_label}", f"Predicted {positive_label}"],
+        )
 
     @staticmethod
     def _build_shap_beeswarm(
