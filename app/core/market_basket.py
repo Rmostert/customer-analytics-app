@@ -17,7 +17,7 @@ from typing import Callable
 
 import pandas as pd
 
-from app.core.duckdb_sample import open_dataset_view, quote_identifier
+from app.core.duckdb_sample import fetch_transaction_sample
 
 
 MAX_TRANSACTIONS = 30_000      # cap baskets analysed in one run
@@ -79,7 +79,7 @@ class MarketBasketEngine:
             raise ValueError("No valid transaction / item pairs after cleaning.")
 
         rows_used = len(work)
-        sampled = is_large
+        duckdb_transaction_sample = is_large
             
         # Cap item cardinality FIRST (shrinks basket sizes), then cap transaction
         # count. Order matters: filtering items before sampling transactions
@@ -88,6 +88,8 @@ class MarketBasketEngine:
         work, transactions_sampled = MarketBasketEngine._sample_transactions(
             work, transaction_col,
         )
+        transactions_sampled = transactions_sampled or duckdb_transaction_sample
+        sampled = is_large or items_filtered or transactions_sampled
 
         if progress:
             progress(25)
@@ -235,14 +237,13 @@ class MarketBasketEngine:
         if is_large:
             if not filepath:
                 raise ValueError("Large dataset path not available.")
-            tx = quote_identifier(transaction_col)
-            item = quote_identifier(item_col)
-            con = open_dataset_view(filepath, encoding)
-            try:
-                sql = f"SELECT {tx}, {item} FROM dataset WHERE {tx} IS NOT NULL AND {item} IS NOT NULL"
-                return con.execute(sql).df()
-            finally:
-                con.close()
+            return fetch_transaction_sample(
+                filepath,
+                transaction_col,
+                item_col,
+                n_transactions=MAX_TRANSACTIONS,
+                encoding=encoding,
+            )
 
         if df is None:
             raise ValueError("No dataset loaded.")

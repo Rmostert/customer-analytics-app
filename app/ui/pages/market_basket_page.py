@@ -104,8 +104,8 @@ class MarketBasketPage(QWidget):
         layout.addWidget(subtitle)
 
         self._large_file_banner = QLabel(
-            "Transaction and product limits are set automatically from your dataset size "
-            "to stay within memory budget on typical 8 GB machines."
+            "Large datasets load a random sample of complete transactions "
+            "(by transaction ID), not random line items, so every basket stays intact."
         )
         self._large_file_banner.setObjectName("status_label")
         self._large_file_banner.setWordWrap(True)
@@ -296,7 +296,7 @@ class MarketBasketPage(QWidget):
 
     def _update_run_state(self):
         has_data = AppState.has_data()
-        self._large_file_banner.setVisible(has_data)
+        self._large_file_banner.setVisible(AppState.is_large())
         running = self._worker is not None and self._worker.isRunning()
         self._run_btn.setEnabled(has_data and not running)
 
@@ -355,18 +355,14 @@ class MarketBasketPage(QWidget):
         self._update_run_state()
 
         sample_note = ""
-        if result.sampled:
+        if result.sampled or result.transactions_sampled or result.items_filtered:
             parts = []
-            if result.transactions_sampled or result.cap_transactions < result.source_transactions:
-                parts.append(
-                    f"{result.transaction_count:,} of {result.source_transactions:,} transactions"
-                )
-            if result.items_filtered or result.cap_unique_items < result.source_unique_items:
-                parts.append(
-                    f"top {result.cap_unique_items:,} of {result.source_unique_items:,} products"
-                )
+            if result.transactions_sampled:
+                parts.append(f"{result.transaction_count:,} transactions sampled")
+            if result.items_filtered:
+                parts.append(f"top {result.unique_items:,} products")
             if result.sampled and not parts:
-                parts.append(f"{result.rows_used:,} line items sampled")
+                parts.append(f"{result.rows_used:,} line items")
             if parts:
                 sample_note = f" ({'; '.join(parts)})"
         self._status.setText(
