@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFrame, QComboBox, QListWidget, QAbstractItemView, QSplitter,
     QScrollArea, QTableWidget, QTableWidgetItem, QHeaderView,
-    QFileDialog, QMessageBox, QProgressBar,
+    QFileDialog, QMessageBox, QProgressBar, QTabWidget,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap
@@ -130,11 +130,22 @@ class ChurnPredictionPage(QWidget):
 
         layout.addStretch()
 
-        self._export_btn = QPushButton("Save Scored Dataset (.csv)")
-        self._export_btn.setObjectName("secondary_btn")
-        self._export_btn.setVisible(False)
-        self._export_btn.clicked.connect(self._export_scores)
-        layout.addWidget(self._export_btn)
+        self._export_frame = QWidget()
+        self._export_frame.setVisible(False)
+        export_layout = QVBoxLayout(self._export_frame)
+        export_layout.setContentsMargins(0, 0, 0, 0)
+        export_layout.setSpacing(8)
+        export_layout.addWidget(self._section("Export"))
+
+        self._export_scores_btn = QPushButton("⬇  Scored Dataset (.csv)")
+        self._export_model_btn = QPushButton("⬇  CatBoost Model (.cbm)")
+        for btn in [self._export_scores_btn, self._export_model_btn]:
+            btn.setObjectName("secondary_btn")
+            export_layout.addWidget(btn)
+
+        self._export_scores_btn.clicked.connect(self._export_scores)
+        self._export_model_btn.clicked.connect(self._export_model)
+        layout.addWidget(self._export_frame)
 
         scroll.setWidget(content)
         outer = QVBoxLayout(panel)
@@ -171,31 +182,56 @@ class ChurnPredictionPage(QWidget):
             strip.addWidget(lbl)
         res.addWidget(self._summary_strip)
 
-        imp_lbl = QLabel("Feature Importance")
-        imp_lbl.setObjectName("section_label")
-        res.addWidget(imp_lbl)
+        self._tabs = QTabWidget()
 
-        self._importance_table = QTableWidget()
-        self._importance_table.setObjectName("preview_table")
-        self._importance_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch)
-        self._importance_table.setAlternatingRowColors(True)
-        self._importance_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self._importance_table.setFixedHeight(230)
-        res.addWidget(self._importance_table)
+        metrics_widget = QWidget()
+        metrics_layout = QVBoxLayout(metrics_widget)
+        metrics_layout.setContentsMargins(0, 8, 0, 0)
+        metrics_layout.setSpacing(12)
 
-        shap_lbl = QLabel("SHAP Beeswarm")
-        shap_lbl.setObjectName("section_label")
-        res.addWidget(shap_lbl)
+        metrics_lbl = QLabel("Classification Metrics (hold-out test set)")
+        metrics_lbl.setObjectName("section_label")
+        metrics_layout.addWidget(metrics_lbl)
 
+        self._metrics_table = self._make_table()
+        self._metrics_table.setFixedHeight(200)
+        metrics_layout.addWidget(self._metrics_table)
+
+        cm_lbl = QLabel("Confusion Matrix")
+        cm_lbl.setObjectName("section_label")
+        metrics_layout.addWidget(cm_lbl)
+
+        self._confusion_table = self._make_table()
+        self._confusion_table.setFixedHeight(120)
+        metrics_layout.addWidget(self._confusion_table)
+        metrics_layout.addStretch()
+        self._tabs.addTab(metrics_widget, "Model Metrics")
+
+        self._importance_table = self._make_table()
+        self._tabs.addTab(self._importance_table, "Feature Importance")
+
+        shap_widget = QWidget()
+        shap_layout = QVBoxLayout(shap_widget)
+        shap_layout.setContentsMargins(0, 8, 0, 0)
         self._shap_image = QLabel("")
         self._shap_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._shap_image.setMinimumHeight(360)
         self._shap_image.setObjectName("status_label")
-        res.addWidget(self._shap_image, 1)
+        shap_layout.addWidget(self._shap_image, 1)
+        self._tabs.addTab(shap_widget, "SHAP Beeswarm")
 
-        layout.addWidget(self._results_widget)
+        res.addWidget(self._tabs, 1)
+
+        layout.addWidget(self._results_widget, 1)
         return panel
+
+    def _make_table(self) -> QTableWidget:
+        tbl = QTableWidget()
+        tbl.setObjectName("preview_table")
+        tbl.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        tbl.setAlternatingRowColors(True)
+        tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        return tbl
 
     def _section(self, text: str) -> QLabel:
         lbl = QLabel(text)
@@ -279,7 +315,7 @@ class ChurnPredictionPage(QWidget):
             return
 
         self._run_btn.setEnabled(False)
-        self._export_btn.setVisible(False)
+        self._export_frame.setVisible(False)
         self._progress.setVisible(True)
         self._progress.setValue(0)
         self._status.setText("Fitting CatBoost churn model...")
@@ -311,7 +347,7 @@ class ChurnPredictionPage(QWidget):
         self._worker = None
         self._progress.setVisible(False)
         self._run_btn.setEnabled(True)
-        self._export_btn.setVisible(True)
+        self._export_frame.setVisible(True)
 
         self._status.setText(
             f"Done — fitted on {result.train_rows:,} rows and scored {result.scored_rows:,} rows."
@@ -323,11 +359,47 @@ class ChurnPredictionPage(QWidget):
         self._lbl_acc.setText(
             f"Accuracy: {result.accuracy:.3f}" if result.accuracy is not None else "Accuracy: N/A"
         )
+        self._populate_metrics(result)
         self._populate_importance(result)
         self._show_shap_plot(result.shap_plot_path)
 
         self._placeholder.setVisible(False)
         self._results_widget.setVisible(True)
+        self._tabs.setCurrentIndex(0)
+
+    def _populate_metrics(self, result: ChurnModelResult):
+        metrics = [
+            ("ROC AUC", result.auc),
+            ("Precision", result.precision),
+            ("Recall", result.recall),
+            ("F1 Score", result.f1),
+            ("Accuracy", result.accuracy),
+        ]
+        tbl = self._metrics_table
+        tbl.clear()
+        tbl.setRowCount(len(metrics))
+        tbl.setColumnCount(2)
+        tbl.setHorizontalHeaderLabels(["Metric", "Value"])
+        for r, (name, value) in enumerate(metrics):
+            tbl.setItem(r, 0, QTableWidgetItem(name))
+            text = f"{value:.4f}" if value is not None else "N/A"
+            val_item = QTableWidgetItem(text)
+            val_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            tbl.setItem(r, 1, val_item)
+
+        cm = result.confusion_matrix
+        cm_tbl = self._confusion_table
+        cm_tbl.clear()
+        cm_tbl.setRowCount(len(cm.index))
+        cm_tbl.setColumnCount(len(cm.columns))
+        cm_tbl.setHorizontalHeaderLabels([str(c) for c in cm.columns])
+        cm_tbl.setVerticalHeaderLabels([str(i) for i in cm.index])
+        for r, row_label in enumerate(cm.index):
+            for c, col_label in enumerate(cm.columns):
+                value = int(cm.loc[row_label, col_label])
+                item = QTableWidgetItem(f"{value:,}")
+                item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                cm_tbl.setItem(r, c, item)
 
     def _populate_importance(self, result: ChurnModelResult):
         tbl = self._importance_table
@@ -384,5 +456,28 @@ class ChurnPredictionPage(QWidget):
         try:
             self._result.scored_data.to_csv(path, index=False)
             QMessageBox.information(self, "Export Complete", f"Saved to:\n{path}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Export Error", str(exc))
+
+    def _export_model(self):
+        if not self._result:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save CatBoost Model",
+            "churn_model.cbm",
+            "CatBoost Model (*.cbm)",
+        )
+        if not path:
+            return
+        try:
+            model_path, meta_path = ChurnModelEngine.save_model(self._result, path)
+            QMessageBox.information(
+                self,
+                "Export Complete",
+                f"Model saved to:\n{model_path}\n\n"
+                f"Metadata saved to:\n{meta_path}\n\n"
+                "Use both files together when scoring new data in a future release.",
+            )
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
