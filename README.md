@@ -20,12 +20,14 @@ customer-analytics/
 │   │       ├── import_page.py     # File import & preview
 │   │       ├── explore_page.py    # Column profiling
 │   │       ├── segmentation_page.py  # Clustering & RFM segmentation
+│   │       ├── market_basket_page.py  # Apriori association rules
 │   │       ├── churn_page.py      # Churn modelling
 │   │       └── nba_page.py           # Next best action (stub)
 │   ├── core/
 │   │   ├── data_loader.py         # CSV / Excel / JSON / Parquet loading
 │   │   ├── profiler.py            # Column statistics (pandas or DuckDB)
-│   │   └── segmentation.py      # K-Means, GMM, K-Prototypes, RFM
+│   │   ├── segmentation.py      # K-Means, GMM, K-Prototypes, RFM
+│   │   └── market_basket.py     # Apriori frequent itemsets & rules
 │   └── utils/
 │       └── app_state.py           # Shared dataset state across pages
 └── data/
@@ -56,6 +58,12 @@ customer-analytics/
 - Export segment assignments (`.xlsx`) and fitted model (`.pkl`)
 
 > **Large CSV / Parquet (> 500 MB):** Explore runs via DuckDB SQL. **Clustering** fits on a configurable random sample (default 50k rows), then optionally assigns labels to the **full file** in batches. **RFM** uses full-dataset quartiles and streams tier assignment — no sampling.
+
+### Market basket analysis
+- **Apriori** frequent itemsets and association rules (mlxtend)
+- Configure **transaction ID**, **item/product**, **minimum support**, and **minimum confidence**
+- Results sorted by lift; export rules and itemsets to Excel
+- Large datasets use a sample of up to 500,000 line items
 
 ### Churn modelling
 - **Catboost classification model** 
@@ -120,6 +128,7 @@ pyinstaller --onefile --windowed --name "CustomerAnalytics" main.py
 | 2 | Customer Segmentation (K-Means, GMM, K-Prototypes, RFM) | ✅ Done |
 | 2 | Export segment assignments & model | ✅ Done |
 | 3 | Churn model | ✅ Done |
-| 4 | Next Best Action Engine | 🔜 Planned |
-| 5 | Export results to PDF | 🔜 Planned |
-| 6 | Packaging & installer | 🔜 Planned |
+| 4 | Market basket analysis (Apriori) | ✅ Done |
+| 5 | Next Best Action Engine | 🔜 Planned |
+| 6 | Export results to PDF | 🔜 Planned |
+| 7 | Packaging & installer | 🔜 Planned |

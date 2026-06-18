@@ -13,3 +13,4 @@ shap>=0.45.0           # SHAP explainability plots
 matplotlib>=3.8.0      # SHAP plot rendering
 pyinstaller>=6.0.0     # Packaging to .exe / .app
 kmodes>=0.12.2
+mlxtend>=0.23.0        # Market basket analysis (Apriori)
