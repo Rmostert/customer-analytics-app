@@ -52,6 +52,46 @@ def fetch_sample(
         con.close()
 
 
+def fetch_transaction_sample(
+    filepath: str,
+    transaction_col: str,
+    item_col: str,
+    n_transactions: int,
+    seed: int = 42,
+    encoding: str = "utf-8",
+) -> pd.DataFrame:
+    """
+    Load all line items for a random sample of transaction IDs.
+
+    Unlike row-level reservoir sampling, every selected basket retains all
+    of its items.
+    """
+    con = open_dataset_view(filepath, encoding)
+    tx = quote_identifier(transaction_col)
+    item = quote_identifier(item_col)
+    n = max(1, int(n_transactions))
+    try:
+        sql = f"""
+            WITH distinct_tx AS (
+                SELECT DISTINCT {tx} AS tx_id
+                FROM dataset
+                WHERE {tx} IS NOT NULL AND {item} IS NOT NULL
+            ),
+            sampled_tx AS (
+                SELECT tx_id
+                FROM distinct_tx
+                USING SAMPLE {n} ROWS (reservoir, {seed})
+            )
+            SELECT d.{tx}, d.{item}
+            FROM dataset d
+            INNER JOIN sampled_tx s ON d.{tx} = s.tx_id
+            WHERE d.{tx} IS NOT NULL AND d.{item} IS NOT NULL
+        """
+        return con.execute(sql).df()
+    finally:
+        con.close()
+
+
 def fetch_quantile_bins(filepath: str, column: str, encoding: str = "utf-8") -> list[float]:
     """Return [min, Q1, Q2, Q3, max] cut-points for *column* over the full file."""
     con = open_dataset_view(filepath, encoding)
