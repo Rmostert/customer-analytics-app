@@ -156,11 +156,10 @@ class MarketBasketEngine:
         if len(rules) > MAX_RULES_STORED:
             rules = rules.head(MAX_RULES_STORED).reset_index(drop=True)
 
-        frequent_itemsets = frequent_itemsets.sort_values(
-            ["support", "itemsets"], ascending=[False, True],
-        ).reset_index(drop=True)
-
         frequent_itemsets = MarketBasketEngine._format_itemsets(frequent_itemsets)
+        frequent_itemsets = frequent_itemsets.sort_values(
+            ["support", "items"], ascending=[False, True],
+        ).reset_index(drop=True)
         rules = MarketBasketEngine._format_rules(rules)
 
         if progress:
