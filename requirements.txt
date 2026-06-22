@@ -11,6 +11,7 @@ scikit-learn>=1.4.0    # Segmentation & NBA models (future sprints)
 catboost>=1.2.5        # Churn prediction model
 shap>=0.45.0           # SHAP explainability plots
 matplotlib>=3.8.0      # SHAP plot rendering
+prophet>=1.1.5         # Time series forecasting
 pyinstaller>=6.0.0     # Packaging to .exe / .app
 kmodes>=0.12.2
 mlxtend>=0.23.0        # Market basket analysis (Apriori)
