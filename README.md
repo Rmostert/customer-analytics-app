@@ -1,7 +1,7 @@
 # Customer Analytics Desktop App
 
 A cross-platform (Windows & Mac) desktop application for customer segmentation,
-data exploration, and next best action analysis.
+data exploration, churn modelling, market basket and Time series analysis.
 
 ---
 
@@ -22,12 +22,13 @@ customer-analytics/
 │   │       ├── segmentation_page.py  # Clustering & RFM segmentation
 │   │       ├── market_basket_page.py  # Apriori association rules
 │   │       ├── churn_page.py      # Churn modelling
-│   │       └── nba_page.py           # Next best action (stub)
+│   │       └── time_series_page.py           # Next best action (stub)
 │   ├── core/
 │   │   ├── data_loader.py         # CSV / Excel / JSON / Parquet loading
 │   │   ├── profiler.py            # Column statistics (pandas or DuckDB)
 │   │   ├── segmentation.py      # K-Means, GMM, K-Prototypes, RFM
 │   │   └── market_basket.py     # Apriori frequent itemsets & rules
+│   │   └── time_series.py     # Apriori frequent itemsets & rules
 │   └── utils/
 │       └── app_state.py           # Shared dataset state across pages
 └── data/
@@ -69,11 +70,12 @@ customer-analytics/
 - **Catboost classification model** 
 - Fit statistics and feature importance
 - Feature explainability on churn using beeswarm plot
+- Export predicted scores
 
-### Next Best Action
-- Placeholder page — planned for a future sprint
-
----
+### Time series analysis
+- Fit a time series model using the Prophet library
+- Fit statistics and time series plot
+- Export time series pot and predictions
 
 ## Setup
 
