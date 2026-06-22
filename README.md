@@ -131,6 +131,6 @@ pyinstaller --onefile --windowed --name "CustomerAnalytics" main.py
 | 2 | Export segment assignments & model | ✅ Done |
 | 3 | Churn model | ✅ Done |
 | 4 | Market basket analysis (Apriori) | ✅ Done |
-| 5 | Next Best Action Engine | 🔜 Planned |
+| 5 | Time series analysis | ✅ Done |
 | 6 | Export results to PDF | 🔜 Planned |
 | 7 | Packaging & installer | 🔜 Planned |
