@@ -14,7 +14,7 @@ from app.ui.pages.explore_page import ExplorePage
 from app.ui.pages.segmentation_page import SegmentationPage
 from app.ui.pages.churn_page import ChurnPredictionPage
 from app.ui.pages.market_basket_page import MarketBasketPage
-from app.ui.pages.nba_page import NextBestActionPage
+from app.ui.pages.time_series_page import TimeSeriesPage
 
 
 NAV_ITEMS = [
@@ -23,7 +23,7 @@ NAV_ITEMS = [
     ("🎯", "Segmentation",      SegmentationPage),
     ("🛒", "Market Basket",     MarketBasketPage),
     ("📉", "Churn Prediction",  ChurnPredictionPage),
-    ("⚡", "Next Best Action",  NextBestActionPage),
+    ("📈", "Time Series",       TimeSeriesPage)
 ]
 
 
